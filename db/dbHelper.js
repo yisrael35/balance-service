@@ -2,7 +2,7 @@ const mysql = require('../db/MysqlConnectionManager')
 const { Errors } = require('../constants/Errors')
 const ServerError = require('../utils/ServerError')
 
-const getConnection = async (host) => {
+const getConnection = async () => {
   const connection = await mysql.getConnection()
   return connection
 }
