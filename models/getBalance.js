@@ -1,7 +1,7 @@
 const ServerError = require('../utils/ServerError')
 const { processGetBalance } = require('../helpers/processManager')
 const dbHelper = require('../db/dbHelper')
-const { getLastProviderBalance, getBalanceByFilter } = require('../sql/queries/balance')
+const { getBalanceByFilter } = require('../sql/queries/balance')
 const { Errors } = require('../constants/Errors')
 
 const getBalance = async (incomingMessage) => {

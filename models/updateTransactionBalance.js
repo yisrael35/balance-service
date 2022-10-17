@@ -1,12 +1,10 @@
 const ServerError = require('../utils/ServerError')
 const { processUpdateTransactionBalance } = require('../helpers/processManager')
+const logger = require('../utils/Logger')
 const dbHelper = require('../db/dbHelper')
 const { Errors } = require('../constants/Errors')
-const { lockBalance, getLastBalance, unlockTables, create, updateBalanceClient, updateBalanceSupplier, updateBalanceUser } = require('../sql/queries/balance')
-const moment = require('moment')
-const { DateFormat } = require('../constants/DateFormat')
-const logger = require('../utils/Logger')
 const { balanceActivity: balanceActivityTable, balance } = require('../constants/DatabaseTables').DatabaseTables
+const { lockBalance, getLastBalance, unlockTables, create, updateBalanceClient, updateBalanceSupplier, updateBalanceUser } = require('../sql/queries/balance')
 
 const updateBalanceByTransaction = async (incomingMessage) => {
   const { data } = incomingMessage

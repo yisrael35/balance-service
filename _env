@@ -10,3 +10,10 @@ INFRA= dev
 R_MQ_INSTANCE_NAME= main
 R_MQ_NAME_BALANCE_MAIN_QUEUE= dev.balance.main.yisrael
 R_MQ_NAME_MAIN_BALANCE_QUEUE= dev.main.balance.yisrael
+
+
+REDIS_HOST= 
+REDIS_PORT= 
+REDIS_USERNAME= default
+REDIS_PASSWORD= 
+REDIS_GROUP_BALANCE= balance
