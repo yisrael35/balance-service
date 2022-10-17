@@ -3,8 +3,6 @@ const { processUpdateTransactionBalance } = require('../helpers/processManager')
 const dbHelper = require('../db/dbHelper')
 const { Errors } = require('../constants/Errors')
 const { lockBalance, getLastBalance, unlockTables, create, updateBalanceClient, updateBalanceSupplier, updateBalanceUser } = require('../sql/queries/balance')
-const moment = require('moment')
-const { DateFormat } = require('../constants/DateFormat')
 const logger = require('../utils/Logger')
 const { balanceActivity: balanceActivityTable, balance } = require('../constants/DatabaseTables').DatabaseTables
 
@@ -57,7 +55,7 @@ const CalcAndUpdateNewBalance = async ({ amount, currencyId, userId, supplierId,
     // update new balance in db
     if (!resBalance) {
       //create new balance
-      const balanceData = { amount: newAmount, currencyId, userId, supplierId, clientId, type }
+      const balanceData = { amount: newAmount, currency_id: currencyId, user_id: userId, supplier_id: supplierId, client_id: clientId, type }
       await dbHelper.executeQueryByConnection(create(balance.TABLE_NAME, balanceData), balanceData, connection)
     } else {
       //update balance
