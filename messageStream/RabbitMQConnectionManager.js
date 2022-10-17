@@ -16,7 +16,7 @@ const initialize = async () => {
   const promises = []
   files.forEach((filename) => promises.push(addNewConnection(filename)))
   await Promise.all(promises)
-  logger.info(`RabbitConnectionManager: All rabbit connections(${Object.keys(_rabbitConnections).length}) are ready`)
+  logger.info(`[RabbitMQ] RabbitConnectionManager: All rabbit connections(${Object.keys(_rabbitConnections).length}) are ready`)
 }
 
 const pushMessageToQueue = async (instanceName, queueName, message) => {
@@ -24,7 +24,7 @@ const pushMessageToQueue = async (instanceName, queueName, message) => {
     throw new Error(`Rabbit instance with name: ${instanceName} is missing`)
   }
   await _rabbitConnections[instanceName].assertQueue(queueName, { durable: true }, (error) => {
-    logger.warn(`[QUEUE NAME: ${queueName}] MESSAGE: ${message}, error: ${error}`)
+    logger.warn(`[RabbitMQ] [QUEUE NAME: ${queueName}] MESSAGE: ${message}, error: ${error}`)
   })
   await _rabbitConnections[instanceName].sendToQueue(queueName, Buffer.from(message))
 }
@@ -34,7 +34,7 @@ const listenToQueueMessages = async (instanceName, queueName, callback) => {
     throw new Error(`Rabbit instance with name: ${instanceName} is missing`)
   }
   await _rabbitConnections[instanceName].assertQueue(queueName, { durable: true }, (error) => {
-    logger.warn(`[QUEUE NAME: ${queueName}], error: ${error}`)
+    logger.warn(`[RabbitMQ] [QUEUE NAME: ${queueName}], error: ${error}`)
   })
   await _rabbitConnections[instanceName].consume(queueName, callback, { noAck: true })
 
@@ -49,7 +49,7 @@ const listenToQueueMessages = async (instanceName, queueName, callback) => {
       ]
     }
   }
-  logger.info(`Rabbit connection ${instanceName} start Listening to queue: ${queueName}`)
+  logger.info(`[RabbitMQ] Rabbit connection ${instanceName} start Listening to queue: ${queueName}`)
 }
 
 module.exports = {
@@ -68,19 +68,19 @@ const addNewConnection = async (fileName) => {
   const connection = await amqp.connect(connectionUrl)
   connection.on('error', (error) => {
     if (error.message !== 'Connection closing') {
-      logger.error(`Message Broker Connection Error: ${error.message}, stack: ${error.stack}`)
+      logger.error(`[RabbitMQ] Message Broker Connection Error: ${error.message}, stack: ${error.stack}`)
     }
   })
   connection.on('close', async () => {
-    logger.info('Message Broker Connection closed, trying to reconnect...')
+    logger.info('[RabbitMQ] Message Broker Connection closed, trying to reconnect...')
     await addNewConnection(fileName)
   })
   connection.on('blocked', (reason) => {
-    logger.error(`AMQP connection is blocked reason: ${reason}.`)
+    logger.error(`[RabbitMQ] AMQP connection is blocked reason: ${reason}.`)
   })
   const channel = await connection.createChannel()
   _rabbitConnections[data.RABBIT_MQ_INSTANCE_NAME] = channel
-  logger.info(`Connection to Rabbit instance: ${data.RABBIT_MQ_INSTANCE_NAME} created successfully`)
+  logger.info(`[RabbitMQ] Connection to Rabbit instance: ${data.RABBIT_MQ_INSTANCE_NAME} created successfully`)
 
   if (_connectionsListeners[data.RABBIT_MQ_INSTANCE_NAME]) {
     for (const connectionListener of _connectionsListeners[data.RABBIT_MQ_INSTANCE_NAME]) {

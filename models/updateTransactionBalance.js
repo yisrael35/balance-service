@@ -3,8 +3,10 @@ const { processUpdateTransactionBalance } = require('../helpers/processManager')
 const logger = require('../utils/Logger')
 const dbHelper = require('../db/dbHelper')
 const { Errors } = require('../constants/Errors')
-const { balanceActivity: balanceActivityTable, balance } = require('../constants/DatabaseTables').DatabaseTables
-const { lockBalance, getLastBalance, unlockTables, create, updateBalanceClient, updateBalanceSupplier, updateBalanceUser } = require('../sql/queries/balance')
+const { balanceActivity: balanceActivityTable } = require('../constants/DatabaseTables').DatabaseTables
+const { create } = require('../sql/queries/balance')
+const REDIS_GROUP_BALANCE = process.env.REDIS_GROUP_BALANCE
+const redis_group = require('../redis/redisGroup')
 
 const updateBalanceByTransaction = async (incomingMessage) => {
   const { data } = incomingMessage
@@ -42,45 +44,21 @@ const updateBalanceByTransaction = async (incomingMessage) => {
 }
 
 const CalcAndUpdateNewBalance = async ({ amount, currencyId, userId, supplierId, clientId, type }) => {
-  const connection = await dbHelper.getConnection()
+  const key = `${type}:${userId || supplierId || clientId}:${currencyId}`
   try {
-    // lock table
-    await dbHelper.executeQueryByConnection(lockBalance(), {}, connection)
-    // get last balance and calculate a new one
-    const filterBy = { currencyId, userId, supplierId, clientId, type }
-    const [resBalance] = await dbHelper.executeQueryByConnection(getLastBalance({ filterBy }), {}, connection)
-    let oldAmount = resBalance ? Number(resBalance.amount) : 0
+    logger.warn(`[Redis] Trying to insert/update balance, key: ${key}, amount: ${amount} to Redis`)
 
-    const newAmount = Number(oldAmount + amount)
-    // update new balance in db
-    if (!resBalance) {
-      //create new balance
-      const balanceData = { amount: newAmount, currencyId, userId, supplierId, clientId, type }
-      await dbHelper.executeQueryByConnection(create(balance.TABLE_NAME, balanceData), balanceData, connection)
-    } else {
-      //update balance
-      const balanceData = { amount: newAmount }
-      if (type === 'owner') {
-        await dbHelper.executeQueryByConnection(updateBalanceUser(balanceData, userId, currencyId), balanceData, connection)
-      } else if (type === 'client') {
-        await dbHelper.executeQueryByConnection(updateBalanceClient(balanceData, clientId, currencyId), balanceData, connection)
-      } else if (type === 'supplier') {
-        await dbHelper.executeQueryByConnection(updateBalanceSupplier(balanceData, supplierId, currencyId), balanceData, connection)
-      }
-    }
-
-    await dbHelper.executeQueryByConnection(unlockTables(), {}, connection)
-    await dbHelper.releaseConnection(connection)
+    redisResult = await redis_group.updateBalance(REDIS_GROUP_BALANCE, key, amount)
+    const { key: redisKey, oldAmount, newAmount } = redisResult
+    logger.info(`[Redis] key: ${redisKey}, Old Amount: ${oldAmount || 0}, new Amount: ${newAmount} updated in Redis successfully`)
     return {
-      oldAmount,
-      newAmount,
+      oldAmount: redisResult.oldAmount || 0,
+      newAmount: redisResult.newAmount,
     }
   } catch (error) {
-    logger.log(error)
-    const { sqlMessage, errorMessage, status } = error
-    await dbHelper.executeQueryByConnection(unlockTables(), {}, connection)
-    await dbHelper.releaseConnection(connection)
-    throw new ServerError(Errors.BALANCE_UPDATE_FAILED({ errorMessage, systemMessage: sqlMessage, code: status }))
+    logger.error(`[Redis] Error: ${error}, Failed to insert to Redis key: ${key}, amount: ${amount}`)
+    const { errorMessage, status } = error
+    throw new ServerError(Errors.BALANCE_UPDATE_FAILED({ errorMessage, code: status }))
   }
 }
 

@@ -13,7 +13,6 @@ const initBalanceRedisData = async () => {
     if (!REDIS_GROUP_BALANCE) {
       throw 'env file not configured correctly for redis balance table'
     }
-    // await getBalanceDataFromRedis()
 
     // get balance data FROM MYSQL-DB
     let resBalances = await dbHelper.executeQuery(getLastBalance({ filterBy: {} }))
@@ -22,11 +21,11 @@ const initBalanceRedisData = async () => {
     for (const balance of resBalances) {
       const { currency_id: currencyId, user_id: userId, supplier_id: supplierId, client_id: clientId, type, amount } = balance
       const key = `${type}:${userId || supplierId || clientId}:${currencyId}`
-      logger.info(`Trying to insert balance, key: ${key}, amount: ${amount} to Redis`)
+      logger.warn(`[Redis] Trying to insert balance, key: ${key}, amount: ${amount} to Redis`)
       try {
         await redis_group.insertToGroup(REDIS_GROUP_BALANCE, key, amount)
       } catch (error) {
-        logger.error(`Error: ${error}, Failed to insert to Redis data: ${balance}`)
+        logger.error(`[Redis] Error: ${error}, Failed to insert to Redis data: ${balance}`)
       }
     }
   } catch (error) {
