@@ -1,8 +1,11 @@
 const ServerError = require('../utils/ServerError')
 const { processGetBalance } = require('../helpers/processManager')
-const dbHelper = require('../db/dbHelper')
-const { getBalanceByFilter } = require('../sql/queries/balance')
+
 const { Errors } = require('../constants/Errors')
+
+const Balance = require('../mongooseModels/balance')
+
+const logger = require('../utils/Logger')
 
 const getBalance = async (incomingMessage) => {
   const { data } = incomingMessage
@@ -24,8 +27,13 @@ const getBalance = async (incomingMessage) => {
 }
 
 const getBalanceFromDB = async ({ filterBy }) => {
-  let resBalance = await dbHelper.executeQuery(getBalanceByFilter({ filterBy }))
-  return resBalance
+  const { limit, offset } = filterBy
+  delete filterBy.limit
+  delete filterBy.offset
+  const result = await Balance.find(filterBy, null, { limit, skip: offset }).catch((error) => {
+    logger.error(`[Mongo] Failed to fetch data from DB, error: ${error}`)
+  })
+  return result
 }
 
 module.exports = { getBalance }

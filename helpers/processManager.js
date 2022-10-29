@@ -1,9 +1,13 @@
-const dbHelper = require('../db/dbHelper')
-const { getByID } = require('../sql/queries/processManager')
 const ServerError = require('../utils/ServerError')
 const { Errors } = require('../constants/Errors')
 const { isNumber } = require('lodash')
-const { user, currency, supplier, client, transaction } = require('../constants/DatabaseTables').DatabaseTables
+const logger = require('../utils/Logger')
+
+const User = require('../mongooseModels/user')
+const Supplier = require('../mongooseModels/supplier')
+const Client = require('../mongooseModels/client')
+const Currency = require('../mongooseModels/currency')
+const Transaction = require('../mongooseModels/transaction')
 
 const DEFAULT_LIMIT = 30
 const DEFAULT_OFFSET = 0
@@ -40,49 +44,24 @@ const processUpdateTransactionBalance = async (payload) => {
           processedData.amount = val
           break
         }
-        case 'currency_id': {
-          const [resCurrency] = await dbHelper.executeQuery(getByID(currency.TABLE_NAME, val))
-          if (!resCurrency) {
-            const errorMessage = `'${key}' property has no match to: ${val}`
-            throw new ServerError(Errors.PROCESS_ERROR({ errorMessage, code: 404 }))
-          }
-          processedData.currencyId = val
+        case 'transaction_id': {
+          processedData.transaction = await getTransactionId(val)
           break
         }
-        case 'transaction_id': {
-          const [resTransaction] = await dbHelper.executeQuery(getByID(transaction.TABLE_NAME, val))
-          if (!resTransaction) {
-            const errorMessage = `'${key}' property has no match to: ${val}`
-            throw new ServerError(Errors.PROCESS_ERROR({ errorMessage, code: 404 }))
-          }
-          processedData.transactionId = val
+        case 'currency_id': {
+          processedData.currency = await getCurrencyId(val)
           break
         }
         case 'user_id': {
-          const [resUser] = await dbHelper.executeQuery(getByID(user.TABLE_NAME, val))
-          if (!resUser) {
-            const errorMessage = `'${key}' property has no match to: ${val}`
-            throw new ServerError(Errors.PROCESS_ERROR({ errorMessage, code: 404 }))
-          }
-          processedData.userId = val
+          processedData.user = await getUserId(val)
           break
         }
         case 'client_id': {
-          const [resClient] = await dbHelper.executeQuery(getByID(client.TABLE_NAME, val))
-          if (!resClient) {
-            const errorMessage = `'${key}' property has no match to: ${val}`
-            throw new ServerError(Errors.PROCESS_ERROR({ errorMessage, code: 404 }))
-          }
-          processedData.clientId = val
+          processedData.client = await getClientId(val)
           break
         }
         case 'supplier_id': {
-          const [resSupplier] = await dbHelper.executeQuery(getByID(supplier.TABLE_NAME, val))
-          if (!resSupplier) {
-            const errorMessage = `'${key}' property has no match to: ${val}`
-            throw new ServerError(Errors.PROCESS_ERROR({ errorMessage, code: 404 }))
-          }
-          processedData.supplierId = val
+          processedData.supplier = await getSupplierId(val)
           break
         }
         default: {
@@ -117,39 +96,19 @@ const processGetBalance = async (payload) => {
           break
         }
         case 'currency_id': {
-          const [resCurrency] = await dbHelper.executeQuery(getByID(currency.TABLE_NAME, val))
-          if (!resCurrency) {
-            const errorMessage = `'${key}' property has no match to: ${val}`
-            throw new ServerError(Errors.PROCESS_ERROR({ errorMessage, code: 404 }))
-          }
-          processedData.currencyId = val
+          processedData.currency = await getCurrencyId(val)
           break
         }
         case 'user_id': {
-          const [resUser] = await dbHelper.executeQuery(getByID(user.TABLE_NAME, val))
-          if (!resUser) {
-            const errorMessage = `'${key}' property has no match to: ${val}`
-            throw new ServerError(Errors.PROCESS_ERROR({ errorMessage, code: 404 }))
-          }
-          processedData.userId = val
+          processedData.user = await getUserId(val)
           break
         }
         case 'client_id': {
-          const [resClient] = await dbHelper.executeQuery(getByID(client.TABLE_NAME, val))
-          if (!resClient) {
-            const errorMessage = `'${key}' property has no match to: ${val}`
-            throw new ServerError(Errors.PROCESS_ERROR({ errorMessage, code: 404 }))
-          }
-          processedData.clientId = val
+          processedData.client = await getClientId(val)
           break
         }
         case 'supplier_id': {
-          const [resSupplier] = await dbHelper.executeQuery(getByID(supplier.TABLE_NAME, val))
-          if (!resSupplier) {
-            const errorMessage = `'${key}' property has no match to: ${val}`
-            throw new ServerError(Errors.PROCESS_ERROR({ errorMessage, code: 404 }))
-          }
-          processedData.supplierId = val
+          processedData.supplier = await getSupplierId(val)
           break
         }
         case 'limit': {
@@ -188,6 +147,136 @@ const checkForRequiredFields = ({ items, payload }) => {
     }
   }
   return true
+}
+
+const getCurrencyId = async (val) => {
+  let _id
+  await Currency.find({ id: val })
+    .then((data) => {
+      if (!data.length) {
+        const currency = new Currency({ id: val })
+        currency
+          .save()
+          .then((data) => {
+            logger.info(`[Mongo] currency save with data: ${data}`)
+            _id = data._id
+          })
+          .catch((error) => {
+            logger.error(`[Mongo] failed to save currency, error: ${error}`)
+          })
+      } else {
+        logger.info(`[Mongo] found currency data: ${data}`)
+        _id = data[0]._id
+      }
+    })
+    .catch((error) => {
+      logger.error(`[Mongo] failed to get currency, error: ${error}`)
+    })
+  return _id
+}
+
+const getSupplierId = async (val) => {
+  let _id
+  await Supplier.find({ id: val })
+    .then((data) => {
+      if (!data.length) {
+        const supplier = new Supplier({ id: val })
+        supplier
+          .save()
+          .then((data) => {
+            logger.info(`[Mongo] supplier save with data: ${data}`)
+            _id = data._id
+          })
+          .catch((error) => {
+            logger.error(`[Mongo] failed to save supplier, error: ${error}`)
+          })
+      } else {
+        logger.info(`[Mongo] found supplier data: ${data}`)
+        _id = data[0]._id
+      }
+    })
+    .catch((error) => {
+      logger.error(`[Mongo] failed to get supplier, error: ${error}`)
+    })
+  return _id
+}
+
+const getTransactionId = async (val) => {
+  let _id
+  await Transaction.find({ id: val })
+    .then((data) => {
+      if (!data.length) {
+        const transaction = new Transaction({ id: val })
+        transaction
+          .save()
+          .then((data) => {
+            logger.info(`[Mongo] transaction save with data: ${data}`)
+            _id = data._id
+          })
+          .catch((error) => {
+            logger.error(`[Mongo] failed to save transaction, error: ${error}`)
+          })
+      } else {
+        logger.info(`[Mongo] found transaction data: ${data}`)
+        _id = data[0]._id
+      }
+    })
+    .catch((error) => {
+      logger.error(`[Mongo] failed to get transaction, error: ${error}`)
+    })
+  return _id
+}
+
+const getUserId = async (val) => {
+  let _id
+  await User.find({ id: val })
+    .then((data) => {
+      if (!data.length) {
+        const user = new User({ id: val })
+        user
+          .save()
+          .then((data) => {
+            logger.info(`[Mongo] user save with data: ${data}`)
+            _id = data._id
+          })
+          .catch((error) => {
+            logger.error(`[Mongo] failed to save user, error: ${error}`)
+          })
+      } else {
+        logger.info(`[Mongo] found user data: ${data}`)
+        _id = data[0]._id
+      }
+    })
+    .catch((error) => {
+      logger.error(`[Mongo] failed to get user, error: ${error}`)
+    })
+  return _id
+}
+
+const getClientId = async (val) => {
+  let _id
+  await Client.find({ id: val })
+    .then((data) => {
+      if (!data.length) {
+        const client = new Client({ id: val })
+        client
+          .save()
+          .then((data) => {
+            logger.info(`[Mongo] client save with data: ${data}`)
+            _id = data._id
+          })
+          .catch((error) => {
+            logger.error(`[Mongo] failed to save client, error: ${error}`)
+          })
+      } else {
+        logger.info(`[Mongo] found client data: ${data}`)
+        _id = data[0]._id
+      }
+    })
+    .catch((error) => {
+      logger.error(`[Mongo] failed to get client, error: ${error}`)
+    })
+  return _id
 }
 
 module.exports = {
